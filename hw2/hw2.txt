@@ -1,0 +1,57 @@
+IMPLEMENTATION
+The implementation of parse_prefix holds the following logic: For each 
+alternative for the given start symbol, we attempt to use parse_prefix
+to derive each of the nonterminal symbols in the alternative. The
+difficult part is deciding the acceptor. A trivial implementation would
+just pass the same acceptor, but this would not work in the following case.
+
+Suppose an alternative list [A;B] is valid. We use the original acceptor
+in our call to parse_prefix with 'A', and get a valid derivation and fragment.
+However we call parse_prefix on 'B' and we fail. What went wrong is that 
+although the derivation was acceptable using the original acceptor, that did
+not mean that what is left over in the fragment can be parsed properly.
+
+The solution to this is to have the acceptor perform *extra* parsing. A 
+derivation is only accepted if there exists derivations for the rest of the
+nonterminals in the current alternative. In other words, the acceptor will
+attempt to derive the 'rest' of the elements in the rule. This guarantees
+that that first derivation in the example above would be rejected until a
+derivation was given that allowed B to have a valid derivation.
+
+WEAKNESSES
+This solution is not perfect, however. The main problem is a consequence of
+recursive definitions. The algorithm simply tries out rules left-to-right,
+and if a definition has a recursive reference, then there's a risk of infinite
+recursion.
+
+For example, suppose that we have a rule such as <A> -> <A> <B> | "terminate".
+Even if we wanted to derive from A the expression "terminate", the algorithm
+parses the alternatives left to right. It will keep trying to dive into A in 
+the hopes that we will eventually come to "terminate", and will hence fall
+in an infinite recursion.
+
+There are some scenarios, however, where a recursive definition is okay. This
+may be the case when the recursion is preceded by a symbol whose definition
+makes progress on the fragment in a way that infinite recursion cannot occur.
+For instance, suppose we have the rules: 
+						<A> -> <B> <A> | "terminate"
+						<B> -> "bad_symbol"
+In such a scenario if we are trying to parse "terminate", we will dive into B,
+only to find that the progress we make (e.g. "bad_symbol") shows that this
+specific alternative is not the one we are looking for. Thus we would 
+backtrack out of the alternative and move directly to "terminate", and our 
+parser would succeed. Notice, though, that if we instead had:
+						<A> -> <B> <A> | "terminate"
+						<B> -> <empty>
+then we would keep recursing through the first rule since we have no 
+indication that we are going down an infinite path.
+
+Taking both of the previous examples into account, the rule about whether or
+not the parser will succeed can be generalized. There are two necessary
+conditions:
+			(i) There exists recursion (not a regular expression)
+			(ii) There are no symbols before the recursive reference
+				that will always safeguard against infinite recursion
+The notion of "safeguard" essentially means that the preceding symbols will
+always make progress in the fragment in such a way that if that path was the
+wrong one, it would be quickly discovered.
