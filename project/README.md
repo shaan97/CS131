@@ -1,7 +1,7 @@
 Run with command
-
-python3 server.py [SERVER_NAME]
-
+```bash
+$ python3 server.py [SERVER_NAME]
+```
 To customize ports, check topmost comment in file server.py.
 
 Currently configured as
